@@ -21,8 +21,6 @@ import subprocess
 import tempfile
 
 import fixtures
-import six
-from six import StringIO
 import subunit as subunit_lib
 import testtools
 
@@ -55,8 +53,8 @@ class TestReturnCodes(base.TestCase):
         shutil.copy('stestr/tests/files/__init__.py', self.init_file)
         shutil.copy('stestr/tests/files/stestr.yaml', self.user_config)
 
-        self.stdout = StringIO()
-        self.stderr = StringIO()
+        self.stdout = io.StringIO()
+        self.stderr = io.StringIO()
         # Change directory, run wrapper and check result
         self.addCleanup(os.chdir, os.path.abspath(os.curdir))
         os.chdir(self.directory)
@@ -95,7 +93,7 @@ class TestReturnCodes(base.TestCase):
         if not subunit:
             self.assertEqual(
                 p.returncode, expected,
-                "Stdout: %s; Stderr: %s" % (out, err))
+                "Stdout: {}; Stderr: {}".format(out, err))
             return (out, err)
         else:
             self.assertEqual(p.returncode, expected,
@@ -143,12 +141,28 @@ class TestReturnCodes(base.TestCase):
         cmd = 'stestr run --blacklist-file %s' % path
         self.assertRunExit(cmd, 0)
 
+    def test_parallel_exclusion_list(self):
+        fd, path = tempfile.mkstemp()
+        self.addCleanup(os.remove, path)
+        with os.fdopen(fd, 'w') as exclusion_list:
+            exclusion_list.write('fail')
+        cmd = 'stestr run --exclude-list %s' % path
+        self.assertRunExit(cmd, 0)
+
     def test_parallel_whitelist(self):
         fd, path = tempfile.mkstemp()
         self.addCleanup(os.remove, path)
         with os.fdopen(fd, 'w') as whitelist:
             whitelist.write('passing')
         cmd = 'stestr run --whitelist-file %s' % path
+        self.assertRunExit(cmd, 0)
+
+    def test_parallel_inclusion_list(self):
+        fd, path = tempfile.mkstemp()
+        self.addCleanup(os.remove, path)
+        with os.fdopen(fd, 'w') as inclusion_list:
+            inclusion_list.write('passing')
+        cmd = 'stestr run --include-list %s' % path
         self.assertRunExit(cmd, 0)
 
     def test_serial_passing(self):
@@ -165,12 +179,28 @@ class TestReturnCodes(base.TestCase):
         cmd = 'stestr run --serial --blacklist-file %s' % path
         self.assertRunExit(cmd, 0)
 
+    def test_serial_exclusion_list(self):
+        fd, path = tempfile.mkstemp()
+        self.addCleanup(os.remove, path)
+        with os.fdopen(fd, 'w') as exclusion_list:
+            exclusion_list.write('fail')
+        cmd = 'stestr run --serial --exclude-list %s' % path
+        self.assertRunExit(cmd, 0)
+
     def test_serial_whitelist(self):
         fd, path = tempfile.mkstemp()
         self.addCleanup(os.remove, path)
         with os.fdopen(fd, 'w') as whitelist:
             whitelist.write('passing')
         cmd = 'stestr run --serial --whitelist-file %s' % path
+        self.assertRunExit(cmd, 0)
+
+    def test_serial_inclusion_list(self):
+        fd, path = tempfile.mkstemp()
+        self.addCleanup(os.remove, path)
+        with os.fdopen(fd, 'w') as inclusion_list:
+            inclusion_list.write('passing')
+        cmd = 'stestr run --serial --include-list %s' % path
         self.assertRunExit(cmd, 0)
 
     def test_serial_subunit_passing(self):
@@ -245,16 +275,16 @@ class TestReturnCodes(base.TestCase):
         self.assertRunExit('stestr run passing', 0)
         stdout = self._get_cmd_stdout(
             'stestr last --no-subunit-trace')
-        stdout = six.text_type(stdout[0])
+        stdout = str(stdout[0])
         test_count_split = stdout.split(' ')
         test_count = test_count_split[1]
         test_count = int(test_count)
-        id_regex = re.compile('\(id=(.*?)\)')
+        id_regex = re.compile(r'\(id=(.*?)\)')
         test_id = id_regex.search(stdout).group(0)
         self.assertRunExit('stestr run --combine passing', 0)
         combine_stdout = self._get_cmd_stdout(
             'stestr last --no-subunit-trace')[0]
-        combine_stdout = six.text_type(combine_stdout)
+        combine_stdout = str(combine_stdout)
         combine_test_count_split = combine_stdout.split(' ')
         combine_test_count = combine_test_count_split[1]
         combine_test_count = int(combine_test_count)
@@ -303,7 +333,7 @@ class TestReturnCodes(base.TestCase):
     def test_no_subunit_trace_force_subunit_trace(self):
         out, err = self.assertRunExit(
             'stestr run --no-subunit-trace --force-subunit-trace passing', 0)
-        out = six.text_type(out)
+        out = str(out)
         self.assertNotIn('PASSED (id=0)', out)
         self.assertIn('Totals', out)
         self.assertIn('Worker Balance', out)
